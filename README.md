@@ -45,7 +45,7 @@ The in-situ/accreted chemical split is:
 - At `[Fe/H] <= -0.4`, in-situ: `[Al/Fe] >= -0.075`.
 - At `[Fe/H] <= -0.4`, accreted: `[Al/Fe] < -0.075`.
 
-The default rotation measurement further restricts the sample to `[Fe/H] < -1.0`. The z-slice comparison plot overlays dashed curves for `[Fe/H] < -1.3`.
+The default rotation measurement further restricts the sample to `[Fe/H] < -1.0`. The z-slice comparison plots overlay dashed curves for `[Fe/H] < -1.3` and dotted curves for `[Fe/H] < -1.5`.
 
 ## Measurement
 
@@ -112,7 +112,7 @@ Bulk rotation versus Galactocentric radius:
 
 ![Rotation versus radius](plots/apogee_halo_rotation_vs_radius.png)
 
-Rotation split by height from the Galactic plane. Solid curves use `[Fe/H] < -1.0`; dashed curves use `[Fe/H] < -1.3`.
+Rotation split by height from the Galactic plane. Solid curves use `[Fe/H] < -1.0`; dashed curves use `[Fe/H] < -1.3`; dotted curves use `[Fe/H] < -1.5`.
 
 ![Rotation z slices](plots/apogee_halo_rotation_z_slices.png)
 

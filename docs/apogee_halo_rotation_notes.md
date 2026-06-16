@@ -25,7 +25,7 @@ The Belokurov & Kravtsov chemical split is:
 - At `[Fe/H] <= -0.4`, in-situ: `[Al/Fe] >= -0.075`.
 - At `[Fe/H] <= -0.4`, accreted: `[Al/Fe] < -0.075`.
 
-The default rotation measurement uses `[Fe/H] < -1.0`. The z-slice comparison overlay uses `[Fe/H] < -1.3`.
+The default rotation measurement uses `[Fe/H] < -1.0`. The z-slice comparison overlays use `[Fe/H] < -1.3` and `[Fe/H] < -1.5`.
 
 ## Measurement
 

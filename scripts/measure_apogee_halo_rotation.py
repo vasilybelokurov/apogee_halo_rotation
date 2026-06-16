@@ -91,8 +91,12 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--zsplit-comparison-feh-max",
         type=float,
-        default=-1.3,
-        help="Overlay dashed curves in the z-slice plot for stars below this [Fe/H]. Use nan to disable.",
+        nargs="+",
+        default=[-1.3, -1.5],
+        help=(
+            "Overlay comparison curves in the z-slice plots for stars below these [Fe/H] values. "
+            "Defaults: -1.3 dashed and -1.5 dotted. Use nan to disable."
+        ),
     )
     parser.add_argument("--abundance-err-max", type=float, default=0.2)
     parser.add_argument("--velocity-err-max", type=float, default=50.0)
@@ -479,12 +483,14 @@ def plot_rotation_z_slices(
     min_count: int,
     n_boot: int,
     random_seed: int,
-    comparison_feh_max: float,
+    comparison_feh_max: list[float],
     out_plot: Path,
     out_pdf: Path | None,
 ) -> dict[str, dict[str, int]]:
     colors = {"in_situ": "#b33a3a", "accreted": "#2f6fb0"}
     labels = {"in_situ": "In-situ halo", "accreted": "Accreted halo"}
+    comparison_styles = ("--", ":")
+    comparison_thresholds = [value for value in comparison_feh_max if np.isfinite(value)]
     panels = [
         ("all", "All", measurement),
         ("abs_z_lt_3", r"$|z| < 3$ kpc", measurement.loc[np.abs(measurement["galz"]) < 3.0]),
@@ -492,7 +498,7 @@ def plot_rotation_z_slices(
     ]
 
     binned_by_panel: dict[str, pd.DataFrame] = {}
-    comparison_binned_by_panel: dict[str, pd.DataFrame] = {}
+    comparison_binned_by_panel: dict[tuple[str, float], pd.DataFrame] = {}
     counts: dict[str, dict[str, int]] = {}
     for offset, (key, _title, subset) in enumerate(panels):
         binned = summarize_rotation(
@@ -503,8 +509,8 @@ def plot_rotation_z_slices(
             random_seed=random_seed + 1000 + offset,
         )
         binned_by_panel[key] = binned
-        if np.isfinite(comparison_feh_max):
-            comparison_subset = subset.loc[pd.to_numeric(subset["FE_H"], errors="coerce") < comparison_feh_max]
+        for threshold in comparison_thresholds:
+            comparison_subset = subset.loc[pd.to_numeric(subset["FE_H"], errors="coerce") < threshold]
             comparison_binned = summarize_rotation(
                 comparison_subset,
                 radius_bins=radius_bins,
@@ -512,7 +518,7 @@ def plot_rotation_z_slices(
                 n_boot=0,
                 random_seed=random_seed + 2000 + offset,
             )
-            comparison_binned_by_panel[key] = comparison_binned
+            comparison_binned_by_panel[(key, threshold)] = comparison_binned
         counts[key] = {
             "total": int(len(subset)),
             "in_situ": int((subset["population"] == "in_situ").sum()),
@@ -544,20 +550,22 @@ def plot_rotation_z_slices(
                 color=colors[population],
                 label=labels[population],
             )
-            if key in comparison_binned_by_panel:
-                comparison_sub = comparison_binned_by_panel[key].loc[
-                    comparison_binned_by_panel[key]["population"] == population
-                ].copy()
+            for threshold, linestyle in zip(comparison_thresholds, comparison_styles):
+                comparison_binned = comparison_binned_by_panel.get((key, threshold))
+                if comparison_binned is None:
+                    continue
+                comparison_sub = comparison_binned.loc[comparison_binned["population"] == population].copy()
                 comparison_sub = comparison_sub.loc[np.isfinite(comparison_sub["median_vphi_kms"])]
-                if not comparison_sub.empty:
-                    ax.plot(
-                        comparison_sub["r_mid_kpc"],
-                        comparison_sub["median_vphi_kms"],
-                        ls="--",
-                        lw=1.7,
-                        color=colors[population],
-                        alpha=0.95,
-                    )
+                if comparison_sub.empty:
+                    continue
+                ax.plot(
+                    comparison_sub["r_mid_kpc"],
+                    comparison_sub["median_vphi_kms"],
+                    ls=linestyle,
+                    lw=1.7,
+                    color=colors[population],
+                    alpha=0.95,
+                )
 
         panel_counts = counts[key]
         ax.set_title(
@@ -576,9 +584,9 @@ def plot_rotation_z_slices(
         Line2D([0], [0], color=colors["in_situ"], marker="o", lw=1.6, label="In-situ halo"),
         Line2D([0], [0], color=colors["accreted"], marker="o", lw=1.6, label="Accreted halo"),
     ]
-    if np.isfinite(comparison_feh_max):
+    for threshold, linestyle in zip(comparison_thresholds, comparison_styles):
         legend_handles.append(
-            Line2D([0], [0], color="0.2", lw=1.7, ls="--", label=fr"$[Fe/H] < {comparison_feh_max:g}$")
+            Line2D([0], [0], color="0.2", lw=1.7, ls=linestyle, label=fr"$[Fe/H] < {threshold:g}$")
         )
     axes[0].legend(handles=legend_handles, frameon=False, loc="upper right")
 
@@ -594,12 +602,14 @@ def plot_rotation_z_slices(
 def plot_radius_histograms_z_slices(
     measurement: pd.DataFrame,
     radius_bins: list[float],
-    comparison_feh_max: float,
+    comparison_feh_max: list[float],
     out_plot: Path,
     out_pdf: Path | None,
 ) -> None:
     colors = {"in_situ": "#b33a3a", "accreted": "#2f6fb0"}
     labels = {"in_situ": "In-situ halo", "accreted": "Accreted halo"}
+    comparison_styles = ("--", ":")
+    comparison_thresholds = [value for value in comparison_feh_max if np.isfinite(value)]
     panels = [
         ("All", measurement),
         (r"$|z| < 3$ kpc", measurement.loc[np.abs(measurement["galz"]) < 3.0]),
@@ -621,13 +631,13 @@ def plot_radius_histograms_z_slices(
             counts, edges = np.histogram(radius, bins=bins)
             ax.stairs(counts, edges, color=colors[population], lw=2.0, label=labels[population])
 
-            if np.isfinite(comparison_feh_max):
-                comparison = pop.loc[pd.to_numeric(pop["FE_H"], errors="coerce") < comparison_feh_max]
+            for threshold, linestyle in zip(comparison_thresholds, comparison_styles):
+                comparison = pop.loc[pd.to_numeric(pop["FE_H"], errors="coerce") < threshold]
                 comparison_radius = pd.to_numeric(comparison["r_gc_kpc"], errors="coerce").to_numpy(dtype=float)
                 comparison_radius = comparison_radius[np.isfinite(comparison_radius)]
                 if len(comparison_radius):
                     comparison_counts, _ = np.histogram(comparison_radius, bins=bins)
-                    ax.stairs(comparison_counts, edges, color=colors[population], lw=1.7, ls="--")
+                    ax.stairs(comparison_counts, edges, color=colors[population], lw=1.7, ls=linestyle)
 
         ax.set_title(f"{title}\nN={len(subset):,}")
         ax.set_xlim(float(bins[0]), float(bins[-1]))
@@ -641,9 +651,9 @@ def plot_radius_histograms_z_slices(
         Line2D([0], [0], color=colors["in_situ"], lw=2.0, label="In-situ halo"),
         Line2D([0], [0], color=colors["accreted"], lw=2.0, label="Accreted halo"),
     ]
-    if np.isfinite(comparison_feh_max):
+    for threshold, linestyle in zip(comparison_thresholds, comparison_styles):
         legend_handles.append(
-            Line2D([0], [0], color="0.2", lw=1.7, ls="--", label=fr"$[Fe/H] < {comparison_feh_max:g}$")
+            Line2D([0], [0], color="0.2", lw=1.7, ls=linestyle, label=fr"$[Fe/H] < {threshold:g}$")
         )
     axes[0].legend(handles=legend_handles, frameon=False, loc="upper right")
 
@@ -887,9 +897,9 @@ def main() -> None:
         "population_counts_clean": selected["population"].value_counts().to_dict(),
         "population_counts_measurement": measurement["population"].value_counts().to_dict(),
         "population_counts_z_slices": zsplit_counts,
-        "zsplit_comparison_feh_max": (
-            None if not np.isfinite(args.zsplit_comparison_feh_max) else args.zsplit_comparison_feh_max
-        ),
+        "zsplit_comparison_feh_max": [
+            float(value) for value in args.zsplit_comparison_feh_max if np.isfinite(value)
+        ],
         "cut_counts": cut_counts,
         "radius_bins_kpc": radius_bins,
         "min_count_per_bin": args.min_count,
