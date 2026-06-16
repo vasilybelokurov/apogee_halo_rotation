@@ -113,7 +113,7 @@ def parse_args() -> argparse.Namespace:
             "Default: automatic bins extending to the largest measured radius."
         ),
     )
-    parser.add_argument("--min-count", type=int, default=1)
+    parser.add_argument("--min-count", type=int, default=3)
     parser.add_argument("--bootstrap", type=int, default=500)
     parser.add_argument("--random-seed", type=int, default=42)
     return parser.parse_args()
@@ -458,9 +458,8 @@ def plot_rotation(binned: pd.DataFrame, out_plot: Path, out_pdf: Path | None) ->
     ax.set_ylabel(r"Median azimuthal velocity $V_\phi$ [km s$^{-1}$]")
     ax.legend(frameon=False)
     ax.grid(True, color="0.9", lw=0.8)
-    finite_bins = binned.loc[np.isfinite(binned["median_vphi_kms"])]
-    if not finite_bins.empty:
-        ax.set_xlim(0.0, float(finite_bins["r_max_kpc"].max()) * 1.03)
+    if not binned.empty:
+        ax.set_xlim(float(binned["r_min_kpc"].min()), float(binned["r_max_kpc"].max()))
     else:
         ax.set_xlim(left=0)
     ax.set_ylim(*VELOCITY_YLIM)
@@ -521,7 +520,8 @@ def plot_rotation_z_slices(
         }
 
     fig, axes = plt.subplots(1, 3, figsize=(14.0, 4.6), sharey=True, constrained_layout=True)
-    xmax = float(np.max(radius_bins)) * 1.03
+    xmin = float(np.min(radius_bins))
+    xmax = float(np.max(radius_bins))
 
     for ax, (key, title, _subset) in zip(axes, panels):
         binned = binned_by_panel[key]
@@ -566,7 +566,7 @@ def plot_rotation_z_slices(
             f"({panel_counts['in_situ']:,} in-situ, {panel_counts['accreted']:,} accreted)"
         )
         ax.axhline(0.0, color="0.25", lw=1.0, ls="--", zorder=0)
-        ax.set_xlim(0.0, xmax)
+        ax.set_xlim(xmin, xmax)
         ax.set_ylim(*VELOCITY_YLIM)
         ax.set_xlabel(r"$r_{\rm GC}$ [kpc]")
         ax.grid(True, color="0.9", lw=0.8)

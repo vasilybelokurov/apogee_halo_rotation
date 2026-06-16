@@ -55,7 +55,7 @@ The reported rotation is the median astroNN Galactocentric azimuthal velocity `g
 r_GC = sqrt(galr^2 + galz^2)
 ```
 
-where `galr` is the astroNN cylindrical Galactocentric radius. Bootstrap 16th/84th percentile intervals are shown for the median velocity. Velocity plots use a fixed vertical range of `-50` to `125 km/s`.
+where `galr` is the astroNN cylindrical Galactocentric radius. Bootstrap 16th/84th percentile intervals are shown for the median velocity. Velocity estimates are shown only for radial bins containing at least three stars. Velocity plots use a fixed vertical range of `-50` to `125 km/s`, and the velocity and radius-histogram plots use identical radial axis limits.
 
 Run the analysis with:
 
@@ -92,7 +92,6 @@ Median rotation by spherical Galactocentric radius:
 | In-situ | 11-13 | 73 | 34.2 |
 | In-situ | 13-15 | 39 | 38.5 |
 | In-situ | 15-20 | 30 | 60.8 |
-| In-situ | 20-25 | 1 | -71.2 |
 | Accreted | 0-3 | 263 | 52.8 |
 | Accreted | 3-5 | 298 | 73.6 |
 | Accreted | 5-7 | 314 | 34.4 |
@@ -102,7 +101,6 @@ Median rotation by spherical Galactocentric radius:
 | Accreted | 13-15 | 407 | 15.8 |
 | Accreted | 15-20 | 427 | 15.8 |
 | Accreted | 20-25 | 36 | 17.6 |
-| Accreted | 25-30 | 1 | 30.5 |
 
 ## Plots
 
