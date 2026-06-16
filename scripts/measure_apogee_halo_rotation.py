@@ -61,8 +61,8 @@ ABUNDANCE_ERR_COLUMNS = (
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description=(
-            "Build the Belokurov & Kravtsov (2022) APOGEE DR17 in-situ/accreted "
-            "selection and measure median azimuthal velocity versus Galactocentric radius."
+            "Build an APOGEE DR17 in-situ/accreted halo sample and measure median "
+            "azimuthal velocity versus Galactocentric radius."
         )
     )
     parser.add_argument("--allstar", type=Path, default=DEFAULT_ALLSTAR)
@@ -93,8 +93,6 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--abundance-err-max", type=float, default=0.2)
     parser.add_argument("--velocity-err-max", type=float, default=50.0)
     parser.add_argument("--distance-max-kpc", type=float, default=15.0)
-    parser.add_argument("--energy-scaled-min", type=float, default=-0.75)
-    parser.add_argument("--energy-scaled-max", type=float, default=-0.4)
     parser.add_argument(
         "--measurement-feh-max",
         type=float,
@@ -168,8 +166,6 @@ def read_astronn(path: Path) -> pd.DataFrame:
         "galvr_err",
         "galvt_err",
         "galvz_err",
-        "Energy",
-        "Energy_err",
         "Lz",
         "e",
         "rap",
@@ -250,8 +246,6 @@ def apply_bk22_clean_selection(
     abundance_err_max: float,
     velocity_err_max: float,
     distance_max_kpc: float,
-    energy_scaled_min: float,
-    energy_scaled_max: float,
 ) -> tuple[pd.DataFrame, dict[str, int]]:
     work = df.copy()
     # AstroNN DR17 stores heliocentric distance in parsec.
@@ -260,7 +254,6 @@ def apply_bk22_clean_selection(
         np.square(pd.to_numeric(work["galr"], errors="coerce"))
         + np.square(pd.to_numeric(work["galz"], errors="coerce"))
     )
-    work["energy_scaled"] = pd.to_numeric(work["Energy"], errors="coerce") * 1.0e-5
     gaia_source_id = pd.to_numeric(work["GAIAEDR3_SOURCE_ID"], errors="coerce").fillna(0).astype("int64")
 
     required = [
@@ -275,7 +268,6 @@ def apply_bk22_clean_selection(
         "galz",
         "galvt",
         "r_gc_kpc",
-        "Energy",
         "Lz",
         *ABUNDANCE_ERR_COLUMNS,
         "galvr_err",
@@ -311,10 +303,6 @@ def apply_bk22_clean_selection(
         "gaia_source_id_present": gaia_source_id > 0,
         "vasiliev_gc_members_removed": ~gaia_source_id.isin(vasiliev_gc_source_ids),
         "distance_lt_limit": work["dist_kpc"] < distance_max_kpc,
-        "bk22_energy_window": (
-            (work["energy_scaled"] > energy_scaled_min)
-            & (work["energy_scaled"] < energy_scaled_max)
-        ),
     }
     for column in ABUNDANCE_ERR_COLUMNS:
         masks["abundance_errors_lt_limit"] &= (
@@ -785,8 +773,6 @@ def main() -> None:
         abundance_err_max=args.abundance_err_max,
         velocity_err_max=args.velocity_err_max,
         distance_max_kpc=args.distance_max_kpc,
-        energy_scaled_min=args.energy_scaled_min,
-        energy_scaled_max=args.energy_scaled_max,
     )
 
     measurement = selected.copy()
@@ -832,10 +818,10 @@ def main() -> None:
         "vasiliev_prob_min": args.vasiliev_prob_min,
         "vasiliev_gc_source_ids": int(len(vasiliev_gc_source_ids)),
         "merged_rows": int(len(merged)),
-        "bk22_clean_rows": int(len(selected)),
+        "clean_rows": int(len(selected)),
         "measurement_rows": int(len(measurement)),
         "measurement_feh_max": None if not np.isfinite(measurement_feh_max) else measurement_feh_max,
-        "population_counts_bk22_clean": selected["population"].value_counts().to_dict(),
+        "population_counts_clean": selected["population"].value_counts().to_dict(),
         "population_counts_measurement": measurement["population"].value_counts().to_dict(),
         "population_counts_z_slices": zsplit_counts,
         "zsplit_comparison_feh_max": (
@@ -856,9 +842,9 @@ def main() -> None:
         "output_zsplit_rotation_pdf": None if args.out_zsplit_pdf is None else str(args.out_zsplit_pdf),
         "notes": [
             "APOGEE chemistry and quality flags are from DR17 allStarLite.",
-            "Coordinates, velocities, velocity errors, and Energy are from AstroNN DR17.",
+            "Coordinates, velocities, and velocity errors are from AstroNN DR17.",
             "Known GC candidates are removed by Gaia EDR3 source-id matches to the Zenodo Vasiliev & Baumgardt 2021 cluster-membership catalogue.",
-            "Energy cut follows BK22 as -0.75 < Energy*1e-5 < -0.4.",
+            "No orbital-energy window is applied.",
             "Population split follows BK22 text: [Fe/H] > -0.4 is in-situ; at lower [Fe/H], [Al/Fe] >= -0.075 is in-situ and [Al/Fe] < -0.075 is accreted.",
             "The plotted radius is spherical r_gc = sqrt(galr^2 + galz^2); galr itself is the AstroNN cylindrical radius.",
             "AstroNN dist is converted from pc to kpc before applying the heliocentric distance cut.",
@@ -872,7 +858,7 @@ def main() -> None:
     print(f"AstroNN path: {astronn_path}")
     print(f"Vasiliev GC path: {vasiliev_path}")
     print(f"Vasiliev GC source ids with prob > {args.vasiliev_prob_min}: {len(vasiliev_gc_source_ids):,}")
-    print(f"BK22 clean rows: {len(selected):,}")
+    print(f"Clean rows: {len(selected):,}")
     print(f"Measurement rows: {len(measurement):,}")
     print("Measurement population counts:")
     print(measurement["population"].value_counts().to_string())

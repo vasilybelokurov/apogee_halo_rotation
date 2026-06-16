@@ -17,7 +17,7 @@ Use `python scripts/download_data.py` to download these files.
 
 ## Selection
 
-The clean sample applies red-giant, APOGEE flag, abundance uncertainty, astroNN velocity uncertainty, distance, energy, Magellanic Cloud program, duplicate/telluric, Gaia source-id, and Vasiliev & Baumgardt globular-cluster member-removal cuts. The GC member removal matches APOGEE `GAIAEDR3_SOURCE_ID` to the Zenodo catalogue `source_id` values with `memberprob > 0.8`.
+The clean sample applies red-giant, APOGEE flag, abundance uncertainty, astroNN velocity uncertainty, distance, Magellanic Cloud program, duplicate/telluric, Gaia source-id, and Vasiliev & Baumgardt globular-cluster member-removal cuts. No orbital-energy window is applied. The GC member removal matches APOGEE `GAIAEDR3_SOURCE_ID` to the Zenodo catalogue `source_id` values with `memberprob > 0.8`.
 
 The Belokurov & Kravtsov chemical split is:
 
