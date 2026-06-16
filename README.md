@@ -55,7 +55,7 @@ The reported rotation is the median astroNN Galactocentric azimuthal velocity `g
 r_GC = sqrt(galr^2 + galz^2)
 ```
 
-where `galr` is the astroNN cylindrical Galactocentric radius. Bootstrap 16th/84th percentile intervals are shown for the median velocity.
+where `galr` is the astroNN cylindrical Galactocentric radius. Bootstrap 16th/84th percentile intervals are shown for the median velocity. Velocity plots use a fixed vertical range of `-50` to `125 km/s`.
 
 Run the analysis with:
 
@@ -117,6 +117,10 @@ Bulk rotation versus Galactocentric radius:
 Rotation split by height from the Galactic plane. Solid curves use `[Fe/H] < -1.0`; dashed curves use `[Fe/H] < -1.3`.
 
 ![Rotation z slices](plots/apogee_halo_rotation_z_slices.png)
+
+Radius histograms for the same all, `|z| < 3 kpc`, and `|z| > 3 kpc` selections, using the same radius bins as the velocity plots and a base-10 logarithmic count axis:
+
+![Radius histograms z slices](plots/apogee_halo_radius_histograms_z_slices.png)
 
 Spatial distribution of the measured in-situ and accreted samples:
 

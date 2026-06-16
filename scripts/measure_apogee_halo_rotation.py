@@ -33,6 +33,8 @@ DEFAULT_OUT_PLOT = ROOT / "plots" / "apogee_halo_rotation_vs_radius.png"
 DEFAULT_OUT_CHEM_PLOT = ROOT / "plots" / "apogee_halo_chemical_selection.png"
 DEFAULT_OUT_RZ_PLOT = ROOT / "plots" / "apogee_halo_rz_z_distribution.png"
 DEFAULT_OUT_ZSPLIT_PLOT = ROOT / "plots" / "apogee_halo_rotation_z_slices.png"
+DEFAULT_OUT_RHIST_PLOT = ROOT / "plots" / "apogee_halo_radius_histograms_z_slices.png"
+VELOCITY_YLIM = (-50.0, 125.0)
 
 BAD_ASPCAPFLAGS = (
     "STAR_BAD",
@@ -84,6 +86,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--out-rz-pdf", type=Path, default=None)
     parser.add_argument("--out-zsplit-plot", type=Path, default=DEFAULT_OUT_ZSPLIT_PLOT)
     parser.add_argument("--out-zsplit-pdf", type=Path, default=None)
+    parser.add_argument("--out-rhist-plot", type=Path, default=DEFAULT_OUT_RHIST_PLOT)
+    parser.add_argument("--out-rhist-pdf", type=Path, default=None)
     parser.add_argument(
         "--zsplit-comparison-feh-max",
         type=float,
@@ -459,6 +463,7 @@ def plot_rotation(binned: pd.DataFrame, out_plot: Path, out_pdf: Path | None) ->
         ax.set_xlim(0.0, float(finite_bins["r_max_kpc"].max()) * 1.03)
     else:
         ax.set_xlim(left=0)
+    ax.set_ylim(*VELOCITY_YLIM)
     fig.tight_layout()
 
     out_plot.parent.mkdir(parents=True, exist_ok=True)
@@ -490,7 +495,6 @@ def plot_rotation_z_slices(
     binned_by_panel: dict[str, pd.DataFrame] = {}
     comparison_binned_by_panel: dict[str, pd.DataFrame] = {}
     counts: dict[str, dict[str, int]] = {}
-    finite_values: list[float] = []
     for offset, (key, _title, subset) in enumerate(panels):
         binned = summarize_rotation(
             subset,
@@ -510,25 +514,13 @@ def plot_rotation_z_slices(
                 random_seed=random_seed + 2000 + offset,
             )
             comparison_binned_by_panel[key] = comparison_binned
-            comparison_finite = comparison_binned.loc[
-                np.isfinite(comparison_binned["median_vphi_kms"]),
-                "median_vphi_kms",
-            ].to_numpy(dtype=float)
-            finite_values.extend(comparison_finite.tolist())
         counts[key] = {
             "total": int(len(subset)),
             "in_situ": int((subset["population"] == "in_situ").sum()),
             "accreted": int((subset["population"] == "accreted").sum()),
         }
-        finite = binned.loc[np.isfinite(binned["median_vphi_kms"]), "median_vphi_kms"].to_numpy(dtype=float)
-        finite_values.extend(finite.tolist())
 
     fig, axes = plt.subplots(1, 3, figsize=(14.0, 4.6), sharey=True, constrained_layout=True)
-    if finite_values:
-        ymin = min(min(finite_values) - 25.0, -25.0)
-        ymax = max(max(finite_values) + 25.0, 175.0)
-    else:
-        ymin, ymax = -25.0, 175.0
     xmax = float(np.max(radius_bins)) * 1.03
 
     for ax, (key, title, _subset) in zip(axes, panels):
@@ -575,7 +567,7 @@ def plot_rotation_z_slices(
         )
         ax.axhline(0.0, color="0.25", lw=1.0, ls="--", zorder=0)
         ax.set_xlim(0.0, xmax)
-        ax.set_ylim(ymin, ymax)
+        ax.set_ylim(*VELOCITY_YLIM)
         ax.set_xlabel(r"$r_{\rm GC}$ [kpc]")
         ax.grid(True, color="0.9", lw=0.8)
 
@@ -597,6 +589,70 @@ def plot_rotation_z_slices(
         fig.savefig(out_pdf)
     plt.close(fig)
     return counts
+
+
+def plot_radius_histograms_z_slices(
+    measurement: pd.DataFrame,
+    radius_bins: list[float],
+    comparison_feh_max: float,
+    out_plot: Path,
+    out_pdf: Path | None,
+) -> None:
+    colors = {"in_situ": "#b33a3a", "accreted": "#2f6fb0"}
+    labels = {"in_situ": "In-situ halo", "accreted": "Accreted halo"}
+    panels = [
+        ("All", measurement),
+        (r"$|z| < 3$ kpc", measurement.loc[np.abs(measurement["galz"]) < 3.0]),
+        (r"$|z| > 3$ kpc", measurement.loc[np.abs(measurement["galz"]) > 3.0]),
+    ]
+    bins = np.asarray(radius_bins, dtype=float)
+    if len(bins) < 2:
+        raise ValueError("radius_bins must contain at least two edges")
+
+    fig, axes = plt.subplots(1, 3, figsize=(14.0, 4.3), sharey=True, constrained_layout=True)
+    for ax, (title, subset) in zip(axes, panels):
+        for population in ("in_situ", "accreted"):
+            pop = subset.loc[subset["population"] == population]
+            radius = pd.to_numeric(pop["r_gc_kpc"], errors="coerce").to_numpy(dtype=float)
+            radius = radius[np.isfinite(radius)]
+            if len(radius) == 0:
+                continue
+
+            counts, edges = np.histogram(radius, bins=bins)
+            ax.stairs(counts, edges, color=colors[population], lw=2.0, label=labels[population])
+
+            if np.isfinite(comparison_feh_max):
+                comparison = pop.loc[pd.to_numeric(pop["FE_H"], errors="coerce") < comparison_feh_max]
+                comparison_radius = pd.to_numeric(comparison["r_gc_kpc"], errors="coerce").to_numpy(dtype=float)
+                comparison_radius = comparison_radius[np.isfinite(comparison_radius)]
+                if len(comparison_radius):
+                    comparison_counts, _ = np.histogram(comparison_radius, bins=bins)
+                    ax.stairs(comparison_counts, edges, color=colors[population], lw=1.7, ls="--")
+
+        ax.set_title(f"{title}\nN={len(subset):,}")
+        ax.set_xlim(float(bins[0]), float(bins[-1]))
+        ax.set_yscale("log")
+        ax.set_ylim(bottom=0.8)
+        ax.set_xlabel(r"$r_{\rm GC}$ [kpc]")
+        ax.grid(True, color="0.9", lw=0.8)
+
+    axes[0].set_ylabel("Star count")
+    legend_handles = [
+        Line2D([0], [0], color=colors["in_situ"], lw=2.0, label="In-situ halo"),
+        Line2D([0], [0], color=colors["accreted"], lw=2.0, label="Accreted halo"),
+    ]
+    if np.isfinite(comparison_feh_max):
+        legend_handles.append(
+            Line2D([0], [0], color="0.2", lw=1.7, ls="--", label=fr"$[Fe/H] < {comparison_feh_max:g}$")
+        )
+    axes[0].legend(handles=legend_handles, frameon=False, loc="upper right")
+
+    out_plot.parent.mkdir(parents=True, exist_ok=True)
+    fig.savefig(out_plot, dpi=220)
+    if out_pdf is not None:
+        out_pdf.parent.mkdir(parents=True, exist_ok=True)
+        fig.savefig(out_pdf)
+    plt.close(fig)
 
 
 def plot_chemical_selection(
@@ -805,6 +861,13 @@ def main() -> None:
         out_plot=args.out_zsplit_plot,
         out_pdf=args.out_zsplit_pdf,
     )
+    plot_radius_histograms_z_slices(
+        measurement,
+        radius_bins=radius_bins,
+        comparison_feh_max=args.zsplit_comparison_feh_max,
+        out_plot=args.out_rhist_plot,
+        out_pdf=args.out_rhist_pdf,
+    )
 
     summary = {
         "allstar_path": str(allstar_path),
@@ -840,6 +903,8 @@ def main() -> None:
         "output_rz_z_distribution_pdf": None if args.out_rz_pdf is None else str(args.out_rz_pdf),
         "output_zsplit_rotation_plot": str(args.out_zsplit_plot),
         "output_zsplit_rotation_pdf": None if args.out_zsplit_pdf is None else str(args.out_zsplit_pdf),
+        "output_radius_histograms_plot": str(args.out_rhist_plot),
+        "output_radius_histograms_pdf": None if args.out_rhist_pdf is None else str(args.out_rhist_pdf),
         "notes": [
             "APOGEE chemistry and quality flags are from DR17 allStarLite.",
             "Coordinates, velocities, and velocity errors are from AstroNN DR17.",
@@ -868,6 +933,7 @@ def main() -> None:
     print(f"Saved {args.out_chem_plot}")
     print(f"Saved {args.out_rz_plot}")
     print(f"Saved {args.out_zsplit_plot}")
+    print(f"Saved {args.out_rhist_plot}")
 
 
 if __name__ == "__main__":

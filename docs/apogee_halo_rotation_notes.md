@@ -35,4 +35,4 @@ The measured bulk rotation is the median astroNN `galvt` in bins of spherical Ga
 r_GC = sqrt(galr^2 + galz^2).
 ```
 
-Bootstrap 16th/84th percentile intervals are computed for the median velocity. By default, plots are PNG only; PDF outputs are optional command-line arguments.
+Bootstrap 16th/84th percentile intervals are computed for the median velocity. Velocity plots use fixed y-axis limits of `-50` to `125 km/s`. The radius histograms use the same radial bin edges as the velocity plots and a base-10 logarithmic count axis. By default, plots are PNG only; PDF outputs are optional command-line arguments.
